@@ -1,0 +1,311 @@
+---
+title: "Stat240 Project Final"
+output: html_document
+date: "2024-05-01"
+author: "Noah Kornfeld, Karen Nam, Ethan Connelly, Peter Wang" 
+---
+**Introduction** <br>
+
+In the complex landscape of economic analysis, the relationship between Gross Domestic Product (GDP) and employment/unemployment rates is a topic that many economists and statisticians alike have studied for hundreds of thousands of hours. Understanding how changes in GDP, a key indicator of economic health, influence employment dynamics is crucial for policymakers, economists, and businesses alike.<br>
+
+Okun’s Law, coined by economist Arthur Okun in the 1960s, states that a rise in employment is associated with a rise in GDP. From this, a question arises regarding the manifestation of this law in the United States economy. Is there a linear relationship between GDP (both Nominal and Real) and Unemployment and Employment rates in the United States? Through the exploration of datasets on GDP and employment/unemployment rates, this project will show that there does exist a linear relationship between GDP and employment rates in the United States. <br>
+
+**Background** <br>
+
+The data utilized for this project is from two primary sources: employment data from the USA Bureau of Labor Statistics and GDP data from the US Government’s Bureau of Economic Analysis. <br>
+
+The employment data, collected via the Current Population Survey, encompasses key variables such as: <br>
+    - **Population size**: Represents the size of the population in the sample <br>
+    - **Labor force size**: Represents the size of the population participating in the labor force (omits individuals not working and not actively seeking work) <br> 
+    - **Unemployment/employment rates**: Represents the percentage of the population that is “unemployed” and “employed” <br>
+
+The employment data has been collected since 1940 which will give us nearly 85 years of numbers to work with. On the other hand, GDP data, sourced from the Bureau of Economic Analysis, includes variables such as:<br>
+    - **Nominal GDP**: Represents the total value of goods and services produced within a country’s borders without adjusting for inflation <br>
+    - **Real GDP**: Represents the total value of goods and services produced within a country’s borders, adjusting for inflation/deflation <br> 
+
+The GDP data has been collected since 1930 which matches up quite well with the employment data in regards to similar starting periods. One potential unusual factor that may affect the interpretation of results is the presence of external shocks or economic events, such as financial crises or pandemics. These events can significantly impact both GDP and employment dynamics in ways that may not conform to typical trends. Additionally, structural changes in the economy, technological advancements, or shifts in government policies can influence the relationship between GDP and employment/unemployment rates. It’s essential to consider these factors and potentially account for them in the analysis to ensure a comprehensive understanding of the observed relationships. <br>
+
+In the remainder of the report, we will conduct a thorough analysis to explore the linear relationship between GDP and employment/unemployment rates in the United States. This will involve: <br> 
+ 
+  1) Visualizing the trends of economic indicators and their correlation with unemployment rates over time through graphs and charts. <br>
+  
+  2) Examining variables like Real and Nominal GDP and Unemployment and Employment rates and totals against time and each other through graphs and linear models. <br>
+  
+  3) Utilizing a simple linear regression model to quantitatively assess the relationship between GDP and employment/unemployment rates. <br>
+  
+  4) Displaying ANOVA tables and evaluating the fit of the linear models based on p-values and R^2 statistics. <br>
+  
+  5) Drawing conclusions and implications based on the findings, providing insights for policymakers,economists, and businesses regarding the dynamics of economic growth and labor             market fluctuations in the United States <br> 
+
+**Analysis**
+```{r echo=FALSE, message=FALSE, show_col_types = FALSE}
+suppressPackageStartupMessages(library(tidyverse))
+us_gdp = read_csv("/Users/noahkornfeld/Desktop/STAT240/project_datasets/year.csv") %>% 
+  rename("year" = date) %>% 
+  rename(
+  "nominal_gdp" = `level-current`,
+  "real_gdp" = `level-chained`,
+  "nominal_growth_rate" = `change-current`,
+  "real_growth_rate" = `change-chained`
+)
+
+us_employment = read_csv("/Users/noahkornfeld/Desktop/STAT240/project_datasets/aat1.csv")
+  
+```
+
+*Cleaning/Manipulating/Joining Datasets*
+```{r echo=FALSE}
+combined_data = us_employment %>% 
+  left_join(us_gdp, by = join_by(year)) %>% 
+  select(-c(agrictulture_ratio,nonagriculture_ratio, footnotes)) %>% 
+  mutate(
+    employment_change = (employed_percent - lag(employed_percent)) / lag(employed_percent) * 100,
+    unemployment_change = (unemployed_percent - lag(unemployed_percent)) / lag(unemployed_percent) * 100
+  ) %>% 
+  print()
+```
+
+**Graphical Summaries** 
+
+*Exploratory Graphs*
+
+1. Employment/Unemployment Rates over Time
+
+```{r echo=FALSE, message=FALSE}
+ggplot(combined_data, aes(x = year)) +
+  geom_line(aes(y = unemployed_percent ,color = "Unemployment Percent")) +
+  geom_line(aes(y = employed_percent, color = "Employment Percent")) + 
+  geom_point(aes(y = unemployed_percent ,color = "Unemployment Percent")) +
+  geom_point(aes(y = employed_percent, color = "Employment Percent")) + 
+  geom_smooth(aes(y = unemployed_percent), color = "black") +
+  geom_smooth(aes(y = employed_percent), color = "black") +
+  labs(
+    title = "Employment and Unemployment Rates over Time",
+    subtitle = "1941 - 2010",
+    x = "Year",
+    y = "Percentage"
+  )
+  
+
+```
+
+*Takeaways:* <br>
+This graph indicates a lack of growth in both Employment and Unemployment percentages. There does not seem to be a lot of change over time, but we can infer that a wider gap between the Employment and Unemployment percentages indicate a stronger economy that year as more people were employed and contributing to the work force. 
+
+2. Employment/Unemployment/Labor Force Totals Over Time
+
+```{r echo=FALSE, message=FALSE}
+ggplot(combined_data, aes(x = year)) +
+  geom_line(aes(y = unemployed ,color = "Unemployment Total")) +
+  geom_line(aes(y = employed_total, color = "Employment Total")) + 
+  geom_line(aes(y = labor_force, color = "Labor Force Total")) + 
+  geom_line(aes(y = not_in_labor ,color = "Not In Labor")) +
+  geom_line(aes(y = population ,color = "Total Population")) +
+  geom_point(aes(y = unemployed ,color = "Unemployment Total")) +
+  geom_point(aes(y = employed_total, color = "Employment Total")) + 
+  geom_point(aes(y = labor_force, color = "Labor Force Total")) + 
+  geom_point(aes(y = not_in_labor ,color = "Not In Labor")) +
+  geom_point(aes(y = population ,color = "Total Population")) +
+  geom_smooth(aes(y = unemployed), color = "black") +
+  geom_smooth(aes(y = employed_total), color = "black") +
+  geom_smooth(aes(y = labor_force), color = "black") +
+  geom_smooth(aes(y = not_in_labor), color = "black") +
+  geom_smooth(aes(y = population), color = "black") +
+  labs(
+    title = "Employment/Unemployment/Labor Force Totals over Time",
+    subtitle = "1941 - 2010",
+    x = "Year",
+    y = "Number of People"
+  )
+```
+
+*Takeaways* <br>
+This graph shows sharp increases in every counting column (population, labor force/non-labor force totals, and unemployment/employment totals). We can also see lots of symmetry on this graph. The difference between the Total Population and the Labor Force Total is accounted for by the "Not In Labor" measurement. The sliver betweeen the Employment and Labor Force totals can be seen as the Unemployment total. This makese both intuitive sense and reaffirms our understanding of the data.<br>
+
+When analyzed with exploratory graph 1, we can affirm our takeaway that unemployment and employment percentages have stayed constant and changes in the totals are likely due to a steady increase in population size.
+
+3. Employment/Unemployment Percent Changes over Time
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+
+ggplot(combined_data, aes(x = year)) +
+  geom_line(aes(y = unemployment_change ,color = "Unemployment Percent Change")) +
+  geom_line(aes(y = employment_change, color = "Employment Percent Change")) + 
+  geom_point(aes(y = employment_change ,color = "Unemployment Percent Change")) +
+  geom_point(aes(y = employment_change, color = "Employment Percent Change")) + 
+  geom_smooth(aes(y = employment_change), color = "black") +
+  geom_smooth(aes(y = employment_change), color = "black") +
+  labs(
+    title = "Unemployment and Employment Percent Change over Time",
+    subtitle = "1941 - 2010",
+    x = "Year",
+    y = "Percent Change"
+  )
+```
+
+*Takeaways* <br>
+This graph is extremely interesting. We see that while the change in employment percentage stays very stead over time, change in employment percentage is very volatile. This counteracts our previous notion of little to no change over time, however because unemployment rates are roughly between 1% and 10% (compared to employment rates between 50% and 60%) a smaller percent change will appear as more drastic for unemployment rates compare to employment rates. We will evaluate the effects of changes in GDP against changes in Employment/Unemployment rates in the comparison graphs section
+
+
+4. Nominal vs Real GDP Over Time
+
+```{r echo=FALSE,message=FALSE }
+ggplot(combined_data, aes(x = year)) +
+  geom_line(aes(y = real_gdp ,color = "Real GDP")) +
+  geom_line(aes(y = nominal_gdp, color = "Nominal GDP")) + 
+  geom_point(aes(y = real_gdp ,color = "Real GDP")) +
+  geom_point(aes(y = nominal_gdp, color = "Nominal GDP")) + 
+  geom_smooth(aes(y = real_gdp), color = "black") +
+  geom_smooth(aes(y = nominal_gdp), color = "black") +
+  labs(
+    title = "Real and Nominal GDP over Time",
+    subtitle = "1941 - 2010",
+    x = "Year",
+    y = "GDP ($)"
+  )
+```
+
+*Takeaways* <br> 
+Both Nominal and Real GDP follow a steady and consistent increase over time. This raises a question of cause. Because employment rates seem to stay somewhat level, we infer that this increase may be due to a population increase rather than changes in the employed population. <br>
+
+It is also worth noting the unique behavior near the top right of the graph. Nominal and Real GDP are essentially equal and even cross over which is behavior seen when inflation rates are extremely low or even negative. This makes sense given the recession in the United States and years following in the late 2000s and early 2010s in the United States
+
+
+5. Nominal and Real GDP Growth Rates over Time
+
+```{r echo=FALSE, message=FALSE}
+ggplot(combined_data, aes(x = year)) +
+  geom_line(aes(y = real_growth_rate ,color = "Real GDP Growth Rate")) +
+  geom_line(aes(y = nominal_growth_rate, color = "Nominal GDP Growth Rate")) + 
+  geom_point(aes(y = real_growth_rate ,color = "Real GDP Growth Rate")) +
+  geom_point(aes(y = nominal_growth_rate, color = "Nominal GDP Growth Rate")) + 
+  geom_smooth(aes(y = real_growth_rate), color = "black") +
+  geom_smooth(aes(y = nominal_growth_rate), color = "black") +
+  labs(
+    title = "Real and Nominal GDP Growth Rates over Time",
+    subtitle = "1941 - 2010",
+    x = "Year",
+    y = "GDP Growth Rate (%)"
+  )
+```
+
+*Takeaways* <br>
+In this graph we can see a very non-linear relationship between GDP growth rates and time. While the trendline shows a decrease, the actual data points are extremely volatile and do not seem to follow as linear of a trend. <br>
+
+The unique behavior in this graph can be similarly explained as the previous one. Real GDP growth rates and Nominal GDP growth rates are similar when inflation is negative and the sharp decline around the 1940s can be attributed to the exceptionally high inflation rates post-WWII. 
+
+
+
+Comparison Graph <br> 
+
+
+```{r echo=FALSE, message = F}
+long_data1 = combined_data %>%
+  pivot_longer(
+    cols = c(real_gdp, nominal_gdp),
+    names_to = "type",
+    values_to = "value"
+  )
+ggplot(long_data1, aes(x = value)) +
+  geom_line(aes(y = employed_percent, color = "Employment Percentage")) +
+  geom_line(aes(y = unemployed_percent, color = "Unemployment Percentage")) +
+  geom_point(aes(y = employed_percent, color = "Employment Percentage")) +
+  geom_point(aes(y = unemployed_percent, color = "Unemployment Percentage")) +
+  geom_smooth(aes(y = employed_percent), color = "black") +
+  geom_smooth(aes(y = unemployed_percent), color = "black") +
+  facet_wrap(~ type, scales = "free_y", labeller = labeller(type = c(nominal_gdp = "Nominal GDP", real_gdp = "Real GDP "))) +
+  labs(title = "Employment/Unemployment Percentages vs GDP",
+       x = "GDP Measurement",
+       y = "Employment/Unemployment %")
+```
+These 2 graphs indicate a somewhat linear relationship between GDP (both Nominal and Real) and Employment percentage. However, the fitted lines and points for Unemployment percentage do not seem to follow an increase or decrease as the GDP measurement increases. This relationship is what we are using to explore our question of interest and will dive into linear models in the Numerical Summaries Section
+
+
+**Numerical Summaries** <br>
+
+In this section we will run 4 simple linear regression models to measure the effects of 2 response variables (Employment and Unemployment Percentage) against 2 covariates (Real and Nominal GDP)
+
+1. Employment ~ Real GDP 
+
+```{r echo=FALSE}
+real_gdp_employment_model = lm(employed_percent ~ real_gdp, data = combined_data)
+summary(real_gdp_employment_model)
+```
+The linear model suggests a significant linear relationship between Real GDP and Employment Percentage with a slope of 6.469e-04 and a corresponding p-value of <2e-16 which is significant at the 0.001 significance level. The model also has an R-squared statistic of 0.7351 indicating that 73.51% of the variance is explained by the linear model. 
+
+
+2. Employment ~ Nominal GDP 
+
+```{r echo=FALSE}
+nominal_gdp_employment_model = lm(employed_percent ~ nominal_gdp, data = combined_data)
+summary(nominal_gdp_employment_model)
+```
+The linear model suggests a significant linear relationship between Nominal GDP and Employment Percentage with a slope of 5.460e-04 and a corresponding p-value of <2e-16 which is significant at the 0.001 significance level. The model also has an R-squared statistic of 0.6364 indicating that 63.64% of the variance is explained by the linear model. 
+
+
+3. Unemployment ~ Real GDP 
+
+```{r echo=FALSE}
+real_gdp_unemployment_model = lm(unemployed_percent ~ real_gdp, data = combined_data)
+summary(real_gdp_unemployment_model)
+```
+While this linear model still suggests a somewhat strong linear relationship between unemployment percentage and real GDP, the slope coefficient is much less is signifcant. The slope is 1.269e-04 with a corresponding p-value of 0.014 which is significant at the 0.01 level but not the 0.001 level. Similarly, the R-squared statistic is 0.08439 which suggests that only 8.439% of the variance is explained by the model. This is very low and indicates the model is not a great fit for the data. 
+
+
+4. Unemployment ~ Nominal GDP 
+
+```{r echo=FALSE}
+nominal_gdp_unemployment_model = lm(unemployed_percent ~ nominal_gdp, data = combined_data)
+summary(nominal_gdp_unemployment_model)
+```
+Similar to the previous model, this linear model indicates a somewhat strong linear relationship between Unemployment and Nominal GDP (but not as strong as Employment and GDP measuremets). The slope estimate is 9.881e-05 with a corresponding p-value of 0.036 which again is significant at the 0.01 level but not the 0.001 level. The R-squared statistic is also very low: 0.06214. This means only 6.214% of the variance is explained by the linear model which also indicates that perhaps the model is not the best fit for the data. <br>
+
+
+Overall Discussion:<br>
+The 4 numerical summaries when taken in the context of our question regarding the linear relationship between Unemployment/Employment and Real and Nominal GDP rates, we can see that the R-squared metrics, slopes, and corresponding p-values indicate a much stronger linear relationship between GDP measures and Employment rates and a weaker, but still present linear relationship between Unemployment rates and GDP measures.
+
+
+**Discussion** <br> 
+
+*Provide broader interpretations of your analysis and describe how to interpret your results with respect to your question of interest.*<br> 
+ 
+  - To answer the question of interest, the graph indicates that the GDP and Employment rate are linearly related. The graph “Employment/Unemployment Percentages vs GDP” shows that the line of Employment Percentage is increasing as the GDP is increasing. On the other hand, the GDP and Unemployment rate do not seem to be related to each other since the graph does not show any increase or decrease in the unemployment rate as the GDP increases. <br>
+ 
+*Discuss any potential short-comings of the analysis.* <br>
+ 
+  - It may not be enough to analyze whether changes in GDP directly cause changes in employment or unemployment. In addition, both GDP and employment figures can be affected by other external factors, such as global economic conditions, technological changes, and government policies, which can complicate direct correlation analysis. Discuss potential future directions for additional work. <br> 
+ 
+*Discuss potential future directions for additional work.* <br>
+
+
+*New questions*<br>
+  
+  - What are the industries that drive the relationship between GDP growth and employment/unemployment rate? <br> 
+ 
+*Different methods to address the same questions* <br> 
+ 
+  - Another method to address the same question would be to run multiple linear regression models to see the effects of other economic indicators besides GDP on Employment and Unemployment rates.
+
+*New data you might collect to refine your understanding*
+ 
+  - International data could be collected to compare the analysis whether the pattern observed is unique to the US or appears globally. <br> 
+
+*Summarize your primary conclusions and the primary evidence that supports these conclusions.* <br> 
+
+Primary conclusion: <br> 
+  
+  - The primary conclusion is that there is a significant linear relationship between real GDP and employment rates, with real GDP explaining a substantial portion of the variation in employment rates. In contrast, the relationship between real GDP and unemployment rates is weaker and less significant, suggesting that other factors play a more dominant role in influencing unemployment rates. <br> 
+
+Primary evidence: <br> 
+  
+  - The R-squared values from the regression models, which show that real GDP accounts for a higher percentage of the variance in employment rates compared to unemployment rates. <br> 
+ 
+  - The significance levels (p-values) of the model coefficients, which are higher for the relationship between real GDP and employment than for the relationship between real GDP and unemployment.<br> 
+
+
+
+**References** <br>
+https://datahub.io/core/employment-us <br>
+https://datahub.io/core/gdp-us <br>
+https://datahub.io/core/inflation <br> 
